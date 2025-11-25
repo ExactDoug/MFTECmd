@@ -1753,7 +1753,10 @@ public class Program
 
                     var outFile = Path.Combine(csv, outName);
 
-                    Log.Information("\tCSV output will be saved to {OutFile}",outFile);
+                    if (!flo)
+                    {
+                        Log.Information("\tCSV output will be saved to {OutFile}",outFile);
+                    }
 
                     if (fl)
                     {
