@@ -54,6 +54,75 @@ The `--flo` option generates only the condensed file listing CSV without the ful
 
 Output columns: FullPath, Extension, IsDirectory, FileSize, Created0x10, LastModified0x10
 
+## Performance Optimizations
+
+This fork includes optimizations that reduce processing time by approximately 38% compared to the standard `--fl` option. The optimizations span both MFTECmd and the MFT library.
+
+### How It Works
+
+When processing an NTFS $MFT file, the standard approach parses all attributes for every file record, then extracts the full set of metadata fields. For use cases that only need basic file listing data, this is wasteful.
+
+The `--flo` mode implements two key optimizations:
+
+#### 1. MFTECmd: Streamlined Output Path
+
+**File:** `MFTECmd/Program.cs`
+
+- **New `--flo` command-line option**: When specified, skips generation of the full CSV export entirely
+- **Optimized `GetFileListData()` function**: Extracts only the 6 required fields (FullPath, Extension, IsDirectory, FileSize, Created0x10, LastModified0x10) directly from file records
+- **Direct `FileListEntry` constructor**: Bypasses intermediate `MFTRecordOut` object creation, reducing memory allocations
+
+#### 2. MFT Library: Selective Attribute Parsing
+
+**Files:** `mft/MFT/MftFile.cs`, `mft/MFT/Mft.cs`, `mft/MFT/FileRecord.cs`
+
+- **Attribute filter parameter**: New constructor overloads accept a `HashSet<AttributeType>` specifying which attributes to parse
+- **Early-exit optimization**: When parsing file records, attributes not in the filter set are skipped entirely (just advance the index pointer)
+- **Filtered attributes for --flo mode**:
+  - `StandardInformation` (0x10): Created/Modified timestamps
+  - `FileName` (0x30): File name and parent directory reference
+  - `Data` (0x80): File size
+
+Attributes skipped in `--flo` mode include: AttributeList, ObjectId, SecurityDescriptor, VolumeName, VolumeInformation, IndexRoot, IndexAllocation, Bitmap, ReparsePoint, EaInformation, Ea, LoggedUtilityStream.
+
+### Performance Impact
+
+| Mode | Processing Time | Improvement |
+|------|-----------------|-------------|
+| Standard `--fl` | ~133 seconds | baseline |
+| `--flo` (Debug build) | ~87 seconds | 35% faster |
+| `--flo` (Release build) | ~80 seconds | 40% faster |
+
+*Benchmark: 2.1GB $MFT with ~2.15 million file records*
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         MFTECmd                                 │
+│  ┌─────────────────┐    ┌─────────────────────────────────────┐ │
+│  │ --flo option    │───>│ GetFileListData()                   │ │
+│  │                 │    │ - Extracts only 6 fields            │ │
+│  └─────────────────┘    │ - Direct FileListEntry construction │ │
+│           │             └─────────────────────────────────────┘ │
+│           │                              │                      │
+│           v                              v                      │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ Attribute Filter: {StandardInfo, FileName, Data}            ││
+│  └─────────────────────────────────────────────────────────────┘│
+└───────────────────────────────│─────────────────────────────────┘
+                                │
+                                v
+┌─────────────────────────────────────────────────────────────────┐
+│                      MFT Library (submodule)                    │
+│  ┌─────────────────┐    ┌─────────────────────────────────────┐ │
+│  │ MftFile.Load()  │───>│ FileRecord constructor              │ │
+│  │ + filter param  │    │ - Skips non-filtered attributes     │ │
+│  └─────────────────┘    │ - Reduces parsing overhead          │ │
+│                         └─────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ## Documentation
 
 MFT parser for NTFS file systems.
