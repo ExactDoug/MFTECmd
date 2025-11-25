@@ -56,6 +56,7 @@ public class Program
                                             @"   MFTECmd.exe -f ""C:\Temp\SomeMFT"" --body ""c:\temp\bout"" --bdl c" + "\r\n\t " +
                                             @"   MFTECmd.exe -f ""C:\Temp\SomeMFT"" --de 5-5" + "\r\n\t " +
                                             @"   MFTECmd.exe -f ""C:\Temp\SomeMFT"" --csv ""c:\temp\out"" --dr --fl" + "\r\n\t " +
+                                            @"   MFTECmd.exe -f ""C:\Temp\SomeMFT"" --csv ""c:\temp\out"" --flo" + "\r\n\t " +
                                             @"   MFTECmd.exe -f ""c:\temp\SomeJ"" --csv ""c:\temp\out""" + "\r\n\t " +
                                             @"   MFTECmd.exe -f ""c:\temp\SomeJ"" -m ""C:\Temp\SomeMFT"" --csv ""c:\temp\out""" + "\r\n\t " +
                                             @"   MFTECmd.exe -f ""c:\temp\SomeBoot""" + "\r\n\t " +
@@ -161,6 +162,11 @@ public class Program
                 "Generate condensed file listing of parsed $MFT contents. Requires --csv"),
 
             new Option<bool>(
+                "--flo",
+                () => false,
+                "Generate ONLY the condensed file listing CSV (no full CSV output). More efficient than --fl for file listing workflows"),
+
+            new Option<bool>(
                 "--at",
                 () => false,
                 "When true, include all timestamps from 0x30 attribute vs only when they differ from 0x10 in the $MFT"),
@@ -232,7 +238,7 @@ public class Program
         }
     }
     
-    private static void DoWork(string f, string m, string json, string jsonf, string csv, string csvf, string body, string bodyf, string bdl, bool blf, string dd, string @do, string de, bool dr, bool fls, string ds, string dt, bool sn, bool fl, bool at, bool rs, bool vss, bool dedupe, bool debug, bool trace)
+    private static void DoWork(string f, string m, string json, string jsonf, string csv, string csvf, string body, string bodyf, string bdl, bool blf, string dd, string @do, string de, bool dr, bool fls, string ds, string dt, bool sn, bool fl, bool flo, bool at, bool rs, bool vss, bool dedupe, bool debug, bool trace)
     {
         var levelSwitch = new LoggingLevelSwitch();
 
@@ -308,6 +314,33 @@ public class Program
             Log.Error("--vss is present, but administrator rights not found. Exiting");
             Console.WriteLine();
             return;
+        }
+
+        // Validate --flo options
+        if (flo && fl)
+        {
+            Log.Error("--flo and --fl cannot be used together. Use --flo for file listing only, or --fl with --csv for both outputs. Exiting");
+            Console.WriteLine();
+            return;
+        }
+
+        if (flo && csv.IsNullOrEmpty())
+        {
+            Log.Error("--flo requires --csv to specify the output directory. Exiting");
+            Console.WriteLine();
+            return;
+        }
+
+        if (flo && json.IsNullOrEmpty() == false)
+        {
+            Log.Warning("--flo mode ignores --json. JSON output requires full CSV processing via --csv without --flo");
+            Console.WriteLine();
+        }
+
+        if (flo && body.IsNullOrEmpty() == false)
+        {
+            Log.Warning("--flo mode ignores --body. Bodyfile output requires full CSV processing via --csv without --flo");
+            Console.WriteLine();
         }
 
         //determine file type
@@ -432,7 +465,7 @@ public class Program
                     drDir = Path.Combine(residentDirBase, "Resident");
                 }
 
-                ProcessMft(f, vss, dedupe, body, bdl, bodyf, blf, csv, csvf, json, jsonf, fl, dt, dd, @do, fls, sn, at, de,rs,drDir);
+                ProcessMft(f, vss, dedupe, body, bdl, bodyf, blf, csv, csvf, json, jsonf, fl, flo, dt, dd, @do, fls, sn, at, de,rs,drDir);
                 break;
             case FileType.LogFile:
                 Log.Warning("$LogFile not supported yet. Exiting");
@@ -475,7 +508,7 @@ public class Program
                         drDir2 = $"{residentDirBase}\\Resident";
                     }
 
-                    ProcessMft(m, vss, dedupe, body, bdl, bodyf, blf, csv, csvf, json, jsonf, fl, dt, dd, @do, fls, sn, at, de,rs,drDir2);
+                    ProcessMft(m, vss, dedupe, body, bdl, bodyf, blf, csv, csvf, json, jsonf, fl, flo, dt, dd, @do, fls, sn, at, de,rs,drDir2);
                 }
 
                 ProcessJ(f, vss, dedupe, csv, csvf, json, jsonf, dt);
@@ -1465,7 +1498,7 @@ public class Program
 
     
     
-    private static void ProcessMft(string file, bool vss, bool dedupe, string body, string bdl, string bodyf, bool blf, string csv, string csvf, string json, string jsonf, bool fl, string dt, string dd, string @do, bool fls, bool includeShort, bool alltimestamp, string de, bool rs, string drDir)
+    private static void ProcessMft(string file, bool vss, bool dedupe, string body, string bdl, string bodyf, bool blf, string csv, string csvf, string json, string jsonf, bool fl, bool flo, string dt, string dd, string @do, bool fls, bool includeShort, bool alltimestamp, string de, bool rs, string drDir)
     {
         var mftFiles = new Dictionary<string, Mft>();
 
@@ -1473,9 +1506,22 @@ public class Program
 
         var sw = new Stopwatch();
         sw.Start();
+
+        // For --flo mode, only parse attributes needed for file listing (performance optimization)
+        HashSet<AttributeType> attributeFilter = null;
+        if (flo)
+        {
+            attributeFilter = new HashSet<AttributeType>
+            {
+                AttributeType.StandardInformation,  // timestamps (Created0x10, LastModified0x10)
+                AttributeType.FileName,              // name, extension, parent reference
+                AttributeType.Data                   // file size
+            };
+        }
+
         try
         {
-            _mft = MftFile.Load(file,rs);
+            _mft = MftFile.Load(file, rs, attributeFilter);
             mftFiles.Add(file, _mft);
 
             var ll = new List<string>();
@@ -1496,7 +1542,7 @@ public class Program
 
                 foreach (var rawCopyReturn in rawFiles)
                 {
-                    localMft = new Mft(rawCopyReturn.FileStream,rs);
+                    localMft = new Mft(rawCopyReturn.FileStream, rs, attributeFilter);
                     mftFiles.Add(rawCopyReturn.InputFilename, localMft);
                 }
             }
@@ -1527,7 +1573,7 @@ public class Program
 
                 foreach (var rawCopyReturn in rawFiles)
                 {
-                    localMft = new Mft(rawCopyReturn.FileStream,rs);
+                    localMft = new Mft(rawCopyReturn.FileStream, rs, attributeFilter);
                     mftFiles.Add(rawCopyReturn.InputFilename, localMft);
                 }
 
@@ -1720,7 +1766,10 @@ public class Program
 
                     var outFile = Path.Combine(csv, outName);
 
-                    Log.Information("\tCSV output will be saved to {OutFile}",outFile);
+                    if (!flo)
+                    {
+                        Log.Information("\tCSV output will be saved to {OutFile}",outFile);
+                    }
 
                     if (fl)
                     {
@@ -1747,92 +1796,124 @@ public class Program
                         _fileListWriter.WriteHeader<FileListEntry>();
                         _fileListWriter.NextRecord();
                     }
-
-                    try
+                    else if (flo)
                     {
-                        swCsv = new StreamWriter(outFile, false, Encoding.UTF8, 4096 * 4);
+                        // --flo mode: Set up ONLY the file listing writer (no full CSV)
+                        var outFileFl = outFile.Replace("$MFT_Output", "$MFT_Output_FileListing");
 
-                        _csvWriter = new CsvWriter(swCsv, CultureInfo.InvariantCulture);
+                        if (csvf.IsNullOrEmpty() == false)
+                        {
+                            outFileFl = Path.Combine(Path.GetDirectoryName(outFileFl), $"{Path.GetFileNameWithoutExtension(outFileFl)}_FileListing{Path.GetExtension(outFileFl)}");
+                        }
 
-                        var foo = _csvWriter.Context.AutoMap<MFTRecordOut>();
+                        Log.Information("\tFile listing output will be saved to {OutFileFl}",outFileFl);
 
-                        foo.Map(t => t.EntryNumber).Index(0);
-                        foo.Map(t => t.SequenceNumber).Index(1);
-                        foo.Map(t => t.InUse).Index(2);
-                        foo.Map(t => t.ParentEntryNumber).Index(3);
-                        foo.Map(t => t.ParentSequenceNumber).Index(4);
-                        foo.Map(t => t.ParentPath).Index(5);
-                        foo.Map(t => t.FileName).Index(6);
-                        foo.Map(t => t.Extension).Index(7);
-                        foo.Map(t => t.FileSize).Index(8);
-                        foo.Map(t => t.ReferenceCount).Index(9);
-                        foo.Map(t => t.ReparseTarget).Index(10);
+                        swFileList = new StreamWriter(outFileFl, false, Encoding.UTF8, 4096 * 4);
+                        _fileListWriter = new CsvWriter(swFileList, CultureInfo.InvariantCulture);
 
-                        foo.Map(t => t.IsDirectory).Index(11);
-                        foo.Map(t => t.HasAds).Index(12);
-                        foo.Map(t => t.IsAds).Index(13);
-                        foo.Map(t => t.Timestomped).Index(14).Name("SI<FN");
-                        foo.Map(t => t.uSecZeros).Index(15);
-                        foo.Map(t => t.Copied).Index(16);
-                        foo.Map(t => t.SiFlags).Convert(t => t.Value.SiFlags.ToString().Replace(", ", "|"))
-                            .Index(17);
-                        foo.Map(t => t.NameType).Index(18);
+                        var foo = _fileListWriter.Context.AutoMap<FileListEntry>();
 
+                        _fileListWriter.Context.RegisterClassMap(foo);
                         foo.Map(t => t.Created0x10).Convert(t =>
-                            $"{t.Value.Created0x10?.ToString(dt)}").Index(19);
-                        foo.Map(t => t.Created0x30).Convert(t =>
-                            $"{t.Value.Created0x30?.ToString(dt)}").Index(20);
-
+                            $"{t.Value.Created0x10?.ToString(dt)}");
                         foo.Map(t => t.LastModified0x10).Convert(t =>
-                                $"{t.Value.LastModified0x10?.ToString(dt)}")
-                            .Index(21);
-                        foo.Map(t => t.LastModified0x30).Convert(t =>
-                                $"{t.Value.LastModified0x30?.ToString(dt)}")
-                            .Index(22);
+                            $"{t.Value.LastModified0x10?.ToString(dt)}");
 
-                        foo.Map(t => t.LastRecordChange0x10).Convert(t =>
-                                $"{t.Value.LastRecordChange0x10?.ToString(dt)}")
-                            .Index(23);
-                        foo.Map(t => t.LastRecordChange0x30).Convert(t =>
-                                $"{t.Value.LastRecordChange0x30?.ToString(dt)}")
-                            .Index(24);
+                        _fileListWriter.WriteHeader<FileListEntry>();
+                        _fileListWriter.NextRecord();
 
-                        foo.Map(t => t.LastAccess0x10).Convert(t =>
-                                $"{t.Value.LastAccess0x10?.ToString(dt)}")
-                            .Index(25);
-
-                        foo.Map(t => t.LastAccess0x30).Convert(t =>
-                                $"{t.Value.LastAccess0x30?.ToString(dt)}")
-                            .Index(26);
-
-                        foo.Map(t => t.UpdateSequenceNumber).Index(27);
-                        foo.Map(t => t.LogfileSequenceNumber).Index(28);
-                        foo.Map(t => t.SecurityId).Index(29);
-
-                        foo.Map(t => t.ObjectIdFileDroid).Index(30);
-                        foo.Map(t => t.LoggedUtilStream).Index(31);
-                        foo.Map(t => t.ZoneIdContents).Index(32);
-                        foo.Map(t => t.SourceFile).Index(33);
-
-                        foo.Map(t => t.FnAttributeId).Ignore();
-                        foo.Map(t => t.OtherAttributeId).Ignore();
-
-                        _csvWriter.Context.RegisterClassMap(foo);
-
-                        _csvWriter.WriteHeader<MFTRecordOut>();
-                        _csvWriter.NextRecord();
+                        // Skip full CSV setup - go directly to processing
                     }
-                    catch (Exception e)
+
+                    // Only set up full CSV writer if not in --flo mode
+                    if (!flo)
                     {
-                        Console.WriteLine();
-                        Log.Error(e,
-                            "Error setting up CSV export. Please report to saericzimmerman@gmail.com. Error: {Message}",e.Message);
-                        _csvWriter = null;
+                        try
+                        {
+                            swCsv = new StreamWriter(outFile, false, Encoding.UTF8, 4096 * 4);
+
+                            _csvWriter = new CsvWriter(swCsv, CultureInfo.InvariantCulture);
+
+                            var foo = _csvWriter.Context.AutoMap<MFTRecordOut>();
+
+                            foo.Map(t => t.EntryNumber).Index(0);
+                            foo.Map(t => t.SequenceNumber).Index(1);
+                            foo.Map(t => t.InUse).Index(2);
+                            foo.Map(t => t.ParentEntryNumber).Index(3);
+                            foo.Map(t => t.ParentSequenceNumber).Index(4);
+                            foo.Map(t => t.ParentPath).Index(5);
+                            foo.Map(t => t.FileName).Index(6);
+                            foo.Map(t => t.Extension).Index(7);
+                            foo.Map(t => t.FileSize).Index(8);
+                            foo.Map(t => t.ReferenceCount).Index(9);
+                            foo.Map(t => t.ReparseTarget).Index(10);
+
+                            foo.Map(t => t.IsDirectory).Index(11);
+                            foo.Map(t => t.HasAds).Index(12);
+                            foo.Map(t => t.IsAds).Index(13);
+                            foo.Map(t => t.Timestomped).Index(14).Name("SI<FN");
+                            foo.Map(t => t.uSecZeros).Index(15);
+                            foo.Map(t => t.Copied).Index(16);
+                            foo.Map(t => t.SiFlags).Convert(t => t.Value.SiFlags.ToString().Replace(", ", "|"))
+                                .Index(17);
+                            foo.Map(t => t.NameType).Index(18);
+
+                            foo.Map(t => t.Created0x10).Convert(t =>
+                                $"{t.Value.Created0x10?.ToString(dt)}").Index(19);
+                            foo.Map(t => t.Created0x30).Convert(t =>
+                                $"{t.Value.Created0x30?.ToString(dt)}").Index(20);
+
+                            foo.Map(t => t.LastModified0x10).Convert(t =>
+                                    $"{t.Value.LastModified0x10?.ToString(dt)}")
+                                .Index(21);
+                            foo.Map(t => t.LastModified0x30).Convert(t =>
+                                    $"{t.Value.LastModified0x30?.ToString(dt)}")
+                                .Index(22);
+
+                            foo.Map(t => t.LastRecordChange0x10).Convert(t =>
+                                    $"{t.Value.LastRecordChange0x10?.ToString(dt)}")
+                                .Index(23);
+                            foo.Map(t => t.LastRecordChange0x30).Convert(t =>
+                                    $"{t.Value.LastRecordChange0x30?.ToString(dt)}")
+                                .Index(24);
+
+                            foo.Map(t => t.LastAccess0x10).Convert(t =>
+                                    $"{t.Value.LastAccess0x10?.ToString(dt)}")
+                                .Index(25);
+
+                            foo.Map(t => t.LastAccess0x30).Convert(t =>
+                                    $"{t.Value.LastAccess0x30?.ToString(dt)}")
+                                .Index(26);
+
+                            foo.Map(t => t.UpdateSequenceNumber).Index(27);
+                            foo.Map(t => t.LogfileSequenceNumber).Index(28);
+                            foo.Map(t => t.SecurityId).Index(29);
+
+                            foo.Map(t => t.ObjectIdFileDroid).Index(30);
+                            foo.Map(t => t.LoggedUtilStream).Index(31);
+                            foo.Map(t => t.ZoneIdContents).Index(32);
+                            foo.Map(t => t.SourceFile).Index(33);
+
+                            foo.Map(t => t.FnAttributeId).Ignore();
+                            foo.Map(t => t.OtherAttributeId).Ignore();
+
+                            _csvWriter.Context.RegisterClassMap(foo);
+
+                            _csvWriter.WriteHeader<MFTRecordOut>();
+                            _csvWriter.NextRecord();
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine();
+                            Log.Error(e,
+                                "Error setting up CSV export. Please report to saericzimmerman@gmail.com. Error: {Message}",e.Message);
+                            _csvWriter = null;
+                        }
                     }
                 }
             }
 
-            if (swBody != null || swCsv != null || _mftOutRecords != null)
+            if (swBody != null || swCsv != null || swFileList != null || _mftOutRecords != null)
             {
                 try
                 {
@@ -1845,8 +1926,8 @@ public class Program
                         }
                     }
                     
-                    ProcessRecords(mftFile.Value.FileRecords, includeShort, alltimestamp, bdl,drDir,mftFile.Key);
-                    ProcessRecords(mftFile.Value.FreeFileRecords, includeShort, alltimestamp, bdl,drDir,mftFile.Key);
+                    ProcessRecords(mftFile.Value.FileRecords, includeShort, alltimestamp, bdl,drDir,mftFile.Key, flo);
+                    ProcessRecords(mftFile.Value.FreeFileRecords, includeShort, alltimestamp, bdl,drDir,mftFile.Key, flo);
                 }
                 catch (Exception ex)
                 {
@@ -2791,9 +2872,9 @@ public class Program
         return FileType.Unknown;
     }
 
-    private static void ProcessRecords(Dictionary<string, FileRecord> records, bool includeShort, bool alltimestamp, string bdl, string drDumpDir, string mftFilePath)
+    private static void ProcessRecords(Dictionary<string, FileRecord> records, bool includeShort, bool alltimestamp, string bdl, string drDumpDir, string mftFilePath, bool fileListOnly)
     {
-        
+
         foreach (var fr in records)
         {
             Log.Verbose(
@@ -2825,6 +2906,25 @@ public class Program
                     fn.FileInfo.NameType == NameTypes.Dos)
                 {
                     continue;
+                }
+
+                // Optimized path for --flo (file listing only) mode
+                if (fileListOnly)
+                {
+                    var flEntry = GetFileListData(fr.Value, fn, null);
+                    _fileListWriter.WriteRecord(flEntry);
+                    _fileListWriter.NextRecord();
+
+                    // Handle ADS for file listing only mode
+                    var adsEntries = fr.Value.GetAlternateDataStreams();
+                    foreach (var adsInfo in adsEntries)
+                    {
+                        var adsEntry = GetFileListData(fr.Value, fn, adsInfo);
+                        _fileListWriter.WriteRecord(adsEntry);
+                        _fileListWriter.NextRecord();
+                    }
+
+                    continue; // Skip all the full CSV/body/JSON logic
                 }
 
                 var mftr = GetCsvData(fr.Value, fn, null, alltimestamp, mftFilePath);
@@ -3160,6 +3260,70 @@ public class Program
         }
 
         return mftr;
+    }
+
+    /// <summary>
+    /// Optimized data extraction for --flo mode. Only extracts fields needed for FileListEntry.
+    /// Skips: ObjectId, LoggedUtilityStream, ReparsePoint, SecurityId, ReferenceCount,
+    /// 0x30 timestamps, timestomping detection, Zone.Identifier parsing, etc.
+    /// </summary>
+    public static FileListEntry GetFileListData(FileRecord fr, FileName fn, AdsInfo adsinfo)
+    {
+        // 1. Get parent path (required - this is the expensive operation we can't avoid)
+        var parentPath = _mft.GetFullParentPath(fn.FileInfo.ParentMftRecord.GetKey());
+
+        // 2. Get filename
+        var fileName = fn.FileInfo.FileName;
+
+        // 3. Handle ADS naming
+        if (adsinfo != null)
+        {
+            fileName = $"{fileName}:{adsinfo.Name}";
+        }
+
+        // 4. Get extension (only for non-directories)
+        string extension = null;
+        var isDirectory = fr.IsDirectory();
+
+        if (!isDirectory)
+        {
+            try
+            {
+                extension = adsinfo != null
+                    ? Path.GetExtension(adsinfo.Name)
+                    : Path.GetExtension(fileName);
+            }
+            catch (Exception)
+            {
+                // Handle bad chars in filenames
+            }
+        }
+
+        // 5. Get file size
+        var fileSize = adsinfo?.Size ?? fr.GetFileSize();
+
+        // 6. Get 0x10 timestamps (only Created and LastModified)
+        DateTimeOffset? created0x10 = null;
+        DateTimeOffset? lastModified0x10 = null;
+
+        var si = (StandardInfo)fr.Attributes.SingleOrDefault(t =>
+            t.AttributeType == AttributeType.StandardInformation);
+
+        if (si != null)
+        {
+            created0x10 = si.CreatedOn;
+            lastModified0x10 = si.ContentModifiedOn;
+        }
+        else
+        {
+            // Fallback to FN timestamps if no SI
+            created0x10 = fn.FileInfo.CreatedOn;
+            lastModified0x10 = fn.FileInfo.ContentModifiedOn;
+        }
+
+        // Return FileListEntry directly (no MFTRecordOut intermediate)
+        return new FileListEntry(parentPath, fileName, extension,
+                                 isDirectory, fileSize, created0x10, lastModified0x10);
     }
 
     public static bool IsAdministrator()
