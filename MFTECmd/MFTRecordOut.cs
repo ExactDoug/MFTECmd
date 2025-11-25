@@ -59,6 +59,9 @@ public class MFTRecordOut
 
 public class FileListEntry
 {
+    /// <summary>
+    /// Constructor for --fl mode (creates from MFTRecordOut)
+    /// </summary>
     public FileListEntry(MFTRecordOut r)
     {
         FullPath = $"{r.ParentPath}\\{r.FileName}";
@@ -67,6 +70,21 @@ public class FileListEntry
         FileSize = r.FileSize;
         Created0x10 = r.Created0x10;
         LastModified0x10 = r.LastModified0x10;
+    }
+
+    /// <summary>
+    /// Direct constructor for --flo mode (bypasses MFTRecordOut for efficiency)
+    /// </summary>
+    public FileListEntry(string parentPath, string fileName, string extension,
+                         bool isDirectory, ulong fileSize,
+                         DateTimeOffset? created0x10, DateTimeOffset? lastModified0x10)
+    {
+        FullPath = $"{parentPath}\\{fileName}";
+        Extension = extension;
+        IsDirectory = isDirectory;
+        FileSize = fileSize;
+        Created0x10 = created0x10;
+        LastModified0x10 = lastModified0x10;
     }
 
     public string FullPath { get; set; }
