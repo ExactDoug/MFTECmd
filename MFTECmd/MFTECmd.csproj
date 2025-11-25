@@ -25,7 +25,9 @@
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="I30" Version="1.5.1" />
-        <PackageReference Include="MFT" Version="1.5.1" />
+        <!-- Using local MFT project with attribute filtering optimization -->
+        <!-- To revert to NuGet: replace ProjectReference with: <PackageReference Include="MFT" Version="1.5.1" /> -->
+        <ProjectReference Include="..\..\mft\MFT\MFT.csproj" />
         <PackageReference Include="Serilog" Version="4.2.0" />
         <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
         <PackageReference Include="CsvHelper" Version="33.0.1" />

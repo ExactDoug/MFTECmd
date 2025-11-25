@@ -1506,9 +1506,22 @@ public class Program
 
         var sw = new Stopwatch();
         sw.Start();
+
+        // For --flo mode, only parse attributes needed for file listing (performance optimization)
+        HashSet<AttributeType> attributeFilter = null;
+        if (flo)
+        {
+            attributeFilter = new HashSet<AttributeType>
+            {
+                AttributeType.StandardInformation,  // timestamps (Created0x10, LastModified0x10)
+                AttributeType.FileName,              // name, extension, parent reference
+                AttributeType.Data                   // file size
+            };
+        }
+
         try
         {
-            _mft = MftFile.Load(file,rs);
+            _mft = MftFile.Load(file, rs, attributeFilter);
             mftFiles.Add(file, _mft);
 
             var ll = new List<string>();
@@ -1529,7 +1542,7 @@ public class Program
 
                 foreach (var rawCopyReturn in rawFiles)
                 {
-                    localMft = new Mft(rawCopyReturn.FileStream,rs);
+                    localMft = new Mft(rawCopyReturn.FileStream, rs, attributeFilter);
                     mftFiles.Add(rawCopyReturn.InputFilename, localMft);
                 }
             }
@@ -1560,7 +1573,7 @@ public class Program
 
                 foreach (var rawCopyReturn in rawFiles)
                 {
-                    localMft = new Mft(rawCopyReturn.FileStream,rs);
+                    localMft = new Mft(rawCopyReturn.FileStream, rs, attributeFilter);
                     mftFiles.Add(rawCopyReturn.InputFilename, localMft);
                 }
 
