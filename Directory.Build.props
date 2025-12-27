@@ -1,0 +1,14 @@
+<Project>
+  <!--
+    Central MSBuild configuration for MFTECmd solution.
+    This file is automatically imported by all projects in subdirectories.
+
+    Purpose: Disable MinVer for submodule projects when git.exe is not in PATH.
+    The submodule projects have explicit <Version> elements that will be used instead.
+  -->
+
+  <PropertyGroup>
+    <!-- Disable MinVer for all mft submodule projects -->
+    <MinVerSkip Condition="$(MSBuildProjectDirectory.Contains('mft'))">true</MinVerSkip>
+  </PropertyGroup>
+</Project>

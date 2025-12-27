@@ -68,6 +68,7 @@ public class Program
     private static CsvWriter _bodyWriter;
     private static CsvWriter _csvWriter;
     private static CsvWriter _fileListWriter;
+    private static MftArrowWriter _arrowWriter;
     private static List<MFTRecordOut> _mftOutRecords;
     private static List<JEntryOut> _jOutRecords;
 
@@ -194,7 +195,11 @@ public class Program
             new Option<bool>(
                 "--trace",
                 () => false,
-                "Show trace information during processing")
+                "Show trace information during processing"),
+
+            new Option<string>(
+                "--arrow",
+                "Directory to save Arrow IPC output file to")
         };
 
         _rootCommand.Description = Header + "\r\n\r\n" + Footer;
@@ -238,7 +243,7 @@ public class Program
         }
     }
     
-    private static void DoWork(string f, string m, string json, string jsonf, string csv, string csvf, string body, string bodyf, string bdl, bool blf, string dd, string @do, string de, bool dr, bool fls, string ds, string dt, bool sn, bool fl, bool flo, bool at, bool rs, bool vss, bool dedupe, bool debug, bool trace)
+    private static void DoWork(string f, string m, string json, string jsonf, string csv, string csvf, string body, string bodyf, string bdl, bool blf, string dd, string @do, string de, bool dr, bool fls, string ds, string dt, bool sn, bool fl, bool flo, bool at, bool rs, bool vss, bool dedupe, bool debug, bool trace, string arrow)
     {
         var levelSwitch = new LoggingLevelSwitch();
 
@@ -401,14 +406,15 @@ public class Program
                     json.IsNullOrEmpty() &&
                     de.IsNullOrEmpty() &&
                     body.IsNullOrEmpty() &&
-                    dd.IsNullOrEmpty())
+                    dd.IsNullOrEmpty() &&
+                    arrow.IsNullOrEmpty())
                 {
                     var helpBld = new HelpBuilder(LocalizationResources.Instance, Console.WindowWidth);
                     var hc = new HelpContext(helpBld, _rootCommand, Console.Out);
 
                     helpBld.Write(hc);
 
-                    Log.Warning("--csv, --json, --body, --dd, or --de is required. Exiting");
+                    Log.Warning("--csv, --json, --body, --dd, --de, or --arrow is required. Exiting");
                     return;
                 }
 
@@ -465,7 +471,7 @@ public class Program
                     drDir = Path.Combine(residentDirBase, "Resident");
                 }
 
-                ProcessMft(f, vss, dedupe, body, bdl, bodyf, blf, csv, csvf, json, jsonf, fl, flo, dt, dd, @do, fls, sn, at, de,rs,drDir);
+                ProcessMft(f, vss, dedupe, body, bdl, bodyf, blf, csv, csvf, json, jsonf, fl, flo, dt, dd, @do, fls, sn, at, de,rs,drDir, arrow);
                 break;
             case FileType.LogFile:
                 Log.Warning("$LogFile not supported yet. Exiting");
@@ -508,7 +514,7 @@ public class Program
                         drDir2 = $"{residentDirBase}\\Resident";
                     }
 
-                    ProcessMft(m, vss, dedupe, body, bdl, bodyf, blf, csv, csvf, json, jsonf, fl, flo, dt, dd, @do, fls, sn, at, de,rs,drDir2);
+                    ProcessMft(m, vss, dedupe, body, bdl, bodyf, blf, csv, csvf, json, jsonf, fl, flo, dt, dd, @do, fls, sn, at, de,rs,drDir2, arrow);
                 }
 
                 ProcessJ(f, vss, dedupe, csv, csvf, json, jsonf, dt);
@@ -1498,7 +1504,7 @@ public class Program
 
     
     
-    private static void ProcessMft(string file, bool vss, bool dedupe, string body, string bdl, string bodyf, bool blf, string csv, string csvf, string json, string jsonf, bool fl, bool flo, string dt, string dd, string @do, bool fls, bool includeShort, bool alltimestamp, string de, bool rs, string drDir)
+    private static void ProcessMft(string file, bool vss, bool dedupe, string body, string bdl, string bodyf, bool blf, string csv, string csvf, string json, string jsonf, bool fl, bool flo, string dt, string dd, string @do, bool fls, bool includeShort, bool alltimestamp, string de, bool rs, string drDir, string arrow)
     {
         var mftFiles = new Dictionary<string, Mft>();
 
@@ -1913,7 +1919,42 @@ public class Program
                 }
             }
 
-            if (swBody != null || swCsv != null || swFileList != null || _mftOutRecords != null)
+            // Initialize Arrow writer if --arrow was specified
+            if (arrow.IsNullOrEmpty() == false)
+            {
+                try
+                {
+                    if (Directory.Exists(arrow) == false)
+                    {
+                        Log.Information("Path to {Arrow} doesn't exist. Creating...", arrow);
+                        Directory.CreateDirectory(arrow);
+                    }
+
+                    string arrowOutName;
+                    if (mftFile.Key.StartsWith("\\\\.\\"))
+                    {
+                        var vssNumber = Helper.GetVssNumberFromPath(mftFile.Key);
+                        var vssTime = Helper.GetVssCreationDate(vssNumber);
+                        arrowOutName = $"{dateTimeOffset:yyyyMMddHHmmss}_VSS{vssNumber}_{vssTime:yyyyMMddHHmmss_fffffff}_MFTECmd_$MFT_Output.arrow";
+                    }
+                    else
+                    {
+                        arrowOutName = $"{dateTimeOffset:yyyyMMddHHmmss}_MFTECmd_$MFT_Output.arrow";
+                    }
+
+                    var arrowPath = Path.Combine(arrow, arrowOutName);
+                    Log.Information("\tArrow IPC output will be saved to {ArrowPath}", arrowPath);
+                    _arrowWriter = new MftArrowWriter(arrowPath);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine();
+                    Log.Error(e, "Error setting up Arrow export. Error: {Message}", e.Message);
+                    _arrowWriter = null;
+                }
+            }
+
+            if (swBody != null || swCsv != null || swFileList != null || _mftOutRecords != null || _arrowWriter != null)
             {
                 try
                 {
@@ -1944,6 +1985,9 @@ public class Program
 
             swBody?.Flush();
             swBody?.Close();
+
+            _arrowWriter?.Dispose();
+            _arrowWriter = null;
 
             if (json.IsNullOrEmpty() == false)
             {
@@ -2979,6 +3023,7 @@ public class Program
                     _bodyWriter.NextRecord();
                 }
 
+                _arrowWriter?.WriteRecord(mftr);
 
                 foreach (var adsInfo in ads)
                 {
@@ -3004,6 +3049,8 @@ public class Program
                         _bodyWriter.WriteRecord(f1);
                         _bodyWriter.NextRecord();
                     }
+
+                    _arrowWriter?.WriteRecord(adsRecord);
                 }
             }
         }
