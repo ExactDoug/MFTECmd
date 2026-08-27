@@ -165,7 +165,7 @@ public class Program
             new Option<bool>(
                 "--flo",
                 () => false,
-                "Generate ONLY the condensed file listing CSV (no full CSV output). More efficient than --fl for file listing workflows"),
+                "Generate ONLY the condensed file listing (no full CSV output). More efficient than --fl for file listing workflows. Requires --csv and/or --arrow"),
 
             new Option<bool>(
                 "--at",
@@ -329,9 +329,9 @@ public class Program
             return;
         }
 
-        if (flo && csv.IsNullOrEmpty())
+        if (flo && csv.IsNullOrEmpty() && arrow.IsNullOrEmpty())
         {
-            Log.Error("--flo requires --csv to specify the output directory. Exiting");
+            Log.Error("--flo requires --csv or --arrow to specify an output directory. Exiting");
             Console.WriteLine();
             return;
         }
@@ -2955,17 +2955,29 @@ public class Program
                 // Optimized path for --flo (file listing only) mode
                 if (fileListOnly)
                 {
-                    var flEntry = GetFileListData(fr.Value, fn, null);
-                    _fileListWriter.WriteRecord(flEntry);
-                    _fileListWriter.NextRecord();
+                    var flData = GetFileListCore(fr.Value, fn, null);
+
+                    if (_fileListWriter != null)
+                    {
+                        _fileListWriter.WriteRecord(new FileListEntry(flData));
+                        _fileListWriter.NextRecord();
+                    }
+
+                    _arrowWriter?.WriteRecord(new FloArrowRecord(flData, fr.Value, fn));
 
                     // Handle ADS for file listing only mode
                     var adsEntries = fr.Value.GetAlternateDataStreams();
                     foreach (var adsInfo in adsEntries)
                     {
-                        var adsEntry = GetFileListData(fr.Value, fn, adsInfo);
-                        _fileListWriter.WriteRecord(adsEntry);
-                        _fileListWriter.NextRecord();
+                        var adsData = GetFileListCore(fr.Value, fn, adsInfo);
+
+                        if (_fileListWriter != null)
+                        {
+                            _fileListWriter.WriteRecord(new FileListEntry(adsData));
+                            _fileListWriter.NextRecord();
+                        }
+
+                        _arrowWriter?.WriteRecord(new FloArrowRecord(adsData, fr.Value, fn));
                     }
 
                     continue; // Skip all the full CSV/body/JSON logic
@@ -3316,6 +3328,16 @@ public class Program
     /// </summary>
     public static FileListEntry GetFileListData(FileRecord fr, FileName fn, AdsInfo adsinfo)
     {
+        return new FileListEntry(GetFileListCore(fr, fn, adsinfo));
+    }
+
+    /// <summary>
+    /// Gathers the per-record values --flo needs, once. Callers turn these into a
+    /// <see cref="FileListEntry" /> for the CSV and/or a <see cref="FloArrowRecord" /> for Arrow.
+    /// Resolving the parent path is the expensive step, so it must not be done twice per record.
+    /// </summary>
+    public static FileListData GetFileListCore(FileRecord fr, FileName fn, AdsInfo adsinfo)
+    {
         // 1. Get parent path (required - this is the expensive operation we can't avoid)
         var parentPath = _mft.GetFullParentPath(fn.FileInfo.ParentMftRecord.GetKey());
 
@@ -3368,9 +3390,9 @@ public class Program
             lastModified0x10 = fn.FileInfo.ContentModifiedOn;
         }
 
-        // Return FileListEntry directly (no MFTRecordOut intermediate)
-        return new FileListEntry(parentPath, fileName, extension,
-                                 isDirectory, fileSize, created0x10, lastModified0x10);
+        // Return the gathered values directly (no MFTRecordOut intermediate)
+        return new FileListData(parentPath, fileName, extension,
+                                isDirectory, fileSize, created0x10, lastModified0x10);
     }
 
     public static bool IsAdministrator()

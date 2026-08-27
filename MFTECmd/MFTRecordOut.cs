@@ -3,7 +3,7 @@ using MFT.Attributes;
 
 namespace MFTECmd;
 
-public class MFTRecordOut
+public class MFTRecordOut : IArrowRecord
 {
     public uint EntryNumber { get; set; }
     public ushort SequenceNumber { get; set; }
@@ -70,6 +70,19 @@ public class FileListEntry
         FileSize = r.FileSize;
         Created0x10 = r.Created0x10;
         LastModified0x10 = r.LastModified0x10;
+    }
+
+    /// <summary>
+    /// Constructor for --flo mode, from values already gathered into a <see cref="FileListData" />.
+    /// </summary>
+    public FileListEntry(FileListData data)
+    {
+        FullPath = $"{data.ParentPath}\\{data.FileName}";
+        Extension = data.Extension;
+        IsDirectory = data.IsDirectory;
+        FileSize = data.FileSize;
+        Created0x10 = data.Created0x10;
+        LastModified0x10 = data.LastModified0x10;
     }
 
     /// <summary>

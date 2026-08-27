@@ -145,7 +145,7 @@ public sealed class MftArrowWriter : IDisposable
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <exception cref="ArgumentNullException">Thrown when record is null.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the writer has been disposed.</exception>
-    public async Task WriteRecordAsync(MFTRecordOut record)
+    public async Task WriteRecordAsync(IArrowRecord record)
     {
         ThrowIfDisposed();
 
@@ -193,7 +193,7 @@ public sealed class MftArrowWriter : IDisposable
     /// <param name="record">The MFT record to write.</param>
     /// <exception cref="ArgumentNullException">Thrown when record is null.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when the writer has been disposed.</exception>
-    public void WriteRecord(MFTRecordOut record)
+    public void WriteRecord(IArrowRecord record)
     {
         WriteRecordAsync(record).GetAwaiter().GetResult();
     }
