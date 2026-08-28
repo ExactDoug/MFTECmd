@@ -29,7 +29,8 @@
             dt              The custom date/time format to use when displaying time stamps. Default is: yyyy-MM-dd HH:mm:ss.fffffff
             sn              Include DOS file name types. Default is FALSE
             fl              Generate condensed file listing. Requires --csv. Default is FALSE
-            flo             Generate file listing ONLY (no full CSV). Optimized for ~38% faster processing. Requires --csv
+            flo             Generate file listing ONLY (no full CSV). Optimized for ~38% faster processing. Requires --csv and/or --arrow
+            arrow           Directory to save Apache Arrow IPC output file to. Can be combined with --flo
             at              When true, include all timestamps from 0x30 attribute vs only when they differ from 0x10. Default is FALSE
     
             vss             Process all Volume Shadow Copies that exist on drive specified by -f . Default is FALSE
@@ -45,6 +46,7 @@
               MFTECmd.exe -f "C:\Temp\SomeMFT" --body "c:\temp\bout" --bdl c
               MFTECmd.exe -f "C:\Temp\SomeMFT" --de 5-5
               MFTECmd.exe -f "C:\Temp\SomeMFT" --csv "c:\temp\out" --flo
+              MFTECmd.exe -f "C:\Temp\SomeMFT" --arrow "c:\temp\out" --flo
 
               Short options (single letter) are prefixed with a single dash. Long commands are prefixed with two dashes
 
@@ -53,6 +55,61 @@
 The `--flo` option generates only the condensed file listing CSV without the full MFT record export. This mode is optimized for scenarios where you only need basic file metadata (path, extension, size, timestamps) and provides approximately 38% faster processing compared to the standard `--fl` option.
 
 Output columns: FullPath, Extension, IsDirectory, FileSize, Created0x10, LastModified0x10
+
+### Apache Arrow Output (--arrow)
+
+The `--arrow` option writes an Apache Arrow IPC file alongside (or instead of) the CSV exports. Arrow is a
+columnar binary format, so analytical databases load it without parsing text or inferring types.
+
+```
+MFTECmd.exe -f "C:\Temp\SomeMFT" --arrow "c:\temp\out"
+MFTECmd.exe -f "C:\Temp\SomeMFT" --arrow "c:\temp\out" --flo
+```
+
+Output is written as `{timestamp}_MFTECmd_$MFT_Output.arrow`, streamed in batches of 10,000 records so
+memory stays flat on large volumes.
+
+#### Schema
+
+The same 11 columns are emitted whether or not `--flo` is used, so downstream queries do not need to know
+which mode produced the file:
+
+| Column | Arrow type |
+|--------|------------|
+| EntryNumber | uint32 |
+| ParentEntryNumber | uint32 |
+| ParentPath | string |
+| FileName | string |
+| Extension | string |
+| FileSize | uint64 |
+| IsDirectory | bool |
+| Created0x10 | timestamp[us, tz=UTC] |
+| LastModified0x10 | timestamp[us, tz=UTC] |
+| NameType | string |
+| InUse | bool |
+
+#### Combining with --flo
+
+`--arrow` works on the `--flo` fast path. Every Arrow column is available there without re-enabling any
+filtered attribute: `EntryNumber` and `InUse` come from the record header, and `ParentEntryNumber` and
+`NameType` from the FileName attribute that `--flo` already parses. Output is verified identical to the
+full path, row for row and column for column.
+
+`--flo` requires an output destination, which `--csv`, `--arrow`, or both will satisfy. Passing only
+`--arrow` writes the Arrow file and no CSV at all.
+
+#### Reading the output
+
+```python
+import duckdb, pyarrow as pa, pyarrow.ipc as ipc
+
+with pa.memory_map("20260827_MFTECmd_$MFT_Output.arrow", "rb") as src:
+    mft = ipc.open_file(src).read_all()
+
+duckdb.sql("SELECT Extension, count(*), sum(FileSize) FROM mft GROUP BY 1 ORDER BY 3 DESC")
+```
+
+`--arrow` is ignored by `--json` and `--body`, which require the full CSV processing path.
 
 ## Performance Optimizations
 
