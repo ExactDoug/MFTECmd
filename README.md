@@ -31,6 +31,7 @@
             fl              Generate condensed file listing. Requires --csv. Default is FALSE
             flo             Generate file listing ONLY (no full CSV). Optimized for ~38% faster processing. Requires --csv and/or --arrow
             arrow           Directory to save Apache Arrow IPC output file to. Can be combined with --flo
+            arrowc          Compression for --arrow output: zstd, lz4, or none. Default is zstd
             at              When true, include all timestamps from 0x30 attribute vs only when they differ from 0x10. Default is FALSE
     
             vss             Process all Volume Shadow Copies that exist on drive specified by -f . Default is FALSE
@@ -68,6 +69,38 @@ MFTECmd.exe -f "C:\Temp\SomeMFT" --arrow "c:\temp\out" --flo
 
 Output is written as `{timestamp}_MFTECmd_$MFT_Output.arrow`, streamed in batches of 10,000 records so
 memory stays flat on large volumes.
+
+#### Compression
+
+Arrow IPC body compression is applied by default. `--arrowc` selects the codec:
+
+| `--arrowc` | tdungan fixture (52,210 rows) | Bytes/row | vs uncompressed |
+|------------|------------------------------|-----------|-----------------|
+| `zstd` (default) | 1,434,514 | 27.48 | **4.58x smaller** |
+| `lz4` | 2,245,202 | 43.00 | 2.93x smaller |
+| `none` | 6,570,778 | 125.85 | baseline |
+
+Compression covers record-batch buffers, not the FlatBuffers metadata, so any reader implementing the
+Arrow IPC spec decompresses transparently. Verified round-trip with pyarrow and DuckDB: all three modes
+produce byte-identical data across all 11 columns.
+
+Use `--arrowc none` if a downstream reader predates Arrow IPC compression support.
+
+#### Why columns are not dictionary-encoded
+
+`ParentPath`, `Extension`, and `NameType` are highly repetitive (on the tdungan fixture, `ParentPath`
+has 4,774 distinct values across 52,210 rows and `NameType` only 3), so dictionary encoding looks like
+an obvious win and measures as one - roughly a further 30% on top of Zstd.
+
+It is deliberately not used. The Arrow IPC **file** format permits only one non-delta dictionary batch
+per dictionary id, and `Apache.Arrow` 22.1.0's `ArrowFileWriter` writes only the dictionary present in
+the *first* record batch, silently discarding later, larger ones. Because an $MFT is streamed, new
+paths and extensions keep appearing after batch 0, so every subsequent batch ends up referencing
+indices past the end of the stored dictionary.
+
+The resulting file has a valid schema and the correct row count, and only fails when a value is
+actually read (`pyarrow` raises `ArrowIndexError: Index 1047 out of bounds`). That silent-corruption
+mode is why this is off rather than opt-in. Zstd captures most of the same redundancy safely.
 
 #### Schema
 

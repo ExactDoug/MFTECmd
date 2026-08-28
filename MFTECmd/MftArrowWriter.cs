@@ -1,13 +1,34 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Apache.Arrow;
+using Apache.Arrow.Compression;
 using Apache.Arrow.Ipc;
 using Apache.Arrow.Types;
 using MFT.Attributes;
 
 namespace MFTECmd;
+
+/// <summary>
+/// IPC body compression applied to Arrow output.
+/// </summary>
+/// <remarks>
+/// Arrow IPC compresses record-batch buffers, not the FlatBuffers metadata. Readers implementing the
+/// Arrow IPC spec (pyarrow, DuckDB, Arrow C++) decompress transparently, so this is a size/CPU trade
+/// rather than a compatibility one.
+/// </remarks>
+public enum MftArrowCompression
+{
+    /// <summary>No compression. Largest files, lowest CPU.</summary>
+    None = 0,
+
+    /// <summary>LZ4 frame. Faster than Zstd, compresses less.</summary>
+    Lz4 = 1,
+
+    /// <summary>Zstandard. Best size for this data; the default.</summary>
+    Zstd = 2
+}
 
 /// <summary>
 /// Writes MFT record data to Apache Arrow IPC format with streaming batch writes for memory efficiency.
@@ -57,8 +78,9 @@ public sealed class MftArrowWriter : IDisposable
     /// <param name="batchSize">Number of records per batch. Defaults to 10,000.</param>
     /// <exception cref="ArgumentNullException">Thrown when outputPath is null or empty.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when batchSize is less than 1.</exception>
-    public MftArrowWriter(string outputPath, int batchSize = DefaultBatchSize)
-        : this(new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, FileOptions.Asynchronous), batchSize, ownsStream: true)
+    public MftArrowWriter(string outputPath, int batchSize = DefaultBatchSize,
+                          MftArrowCompression compression = MftArrowCompression.Zstd)
+        : this(new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, FileOptions.Asynchronous), batchSize, ownsStream: true, compression: compression)
     {
         if (string.IsNullOrEmpty(outputPath))
             throw new ArgumentNullException(nameof(outputPath));
@@ -72,7 +94,8 @@ public sealed class MftArrowWriter : IDisposable
     /// <param name="ownsStream">Whether the writer should dispose the stream when disposed.</param>
     /// <exception cref="ArgumentNullException">Thrown when outputStream is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when batchSize is less than 1.</exception>
-    public MftArrowWriter(Stream outputStream, int batchSize = DefaultBatchSize, bool ownsStream = false)
+    public MftArrowWriter(Stream outputStream, int batchSize = DefaultBatchSize, bool ownsStream = false,
+                          MftArrowCompression compression = MftArrowCompression.Zstd)
     {
         _outputStream = outputStream ?? throw new ArgumentNullException(nameof(outputStream));
 
@@ -83,8 +106,21 @@ public sealed class MftArrowWriter : IDisposable
         _ownsStream = ownsStream;
         _schema = CreateSchema();
 
-        // Initialize the Arrow file writer
-        _writer = new ArrowFileWriter(_outputStream, _schema);
+        Compression = compression;
+
+        // Initialize the Arrow file writer, enabling IPC body compression when requested.
+        var ipcOptions = new IpcOptions();
+
+        if (compression != MftArrowCompression.None)
+        {
+            ipcOptions.CompressionCodec = compression == MftArrowCompression.Zstd
+                ? CompressionCodecType.Zstd
+                : CompressionCodecType.Lz4Frame;
+
+            ipcOptions.CompressionCodecFactory = new CompressionCodecFactory();
+        }
+
+        _writer = new ArrowFileWriter(_outputStream, _schema, leaveOpen: false, ipcOptions);
 
         // Initialize array builders with capacity hint
         _entryNumberBuilder = new UInt32Array.Builder().Reserve(batchSize);
@@ -111,6 +147,11 @@ public sealed class MftArrowWriter : IDisposable
     /// Gets the configured batch size.
     /// </summary>
     public int BatchSize => _batchSize;
+
+    /// <summary>
+    /// IPC body compression in use for this writer.
+    /// </summary>
+    public MftArrowCompression Compression { get; }
 
     /// <summary>
     /// Creates the Arrow schema for MFT records.

@@ -199,7 +199,12 @@ public class Program
 
             new Option<string>(
                 "--arrow",
-                "Directory to save Arrow IPC output file to")
+                "Directory to save Arrow IPC output file to"),
+
+            new Option<string>(
+                "--arrowc",
+                () => "zstd",
+                "Compression for --arrow output: zstd, lz4, or none. Default is zstd")
         };
 
         _rootCommand.Description = Header + "\r\n\r\n" + Footer;
@@ -243,7 +248,7 @@ public class Program
         }
     }
     
-    private static void DoWork(string f, string m, string json, string jsonf, string csv, string csvf, string body, string bodyf, string bdl, bool blf, string dd, string @do, string de, bool dr, bool fls, string ds, string dt, bool sn, bool fl, bool flo, bool at, bool rs, bool vss, bool dedupe, bool debug, bool trace, string arrow)
+    private static void DoWork(string f, string m, string json, string jsonf, string csv, string csvf, string body, string bodyf, string bdl, bool blf, string dd, string @do, string de, bool dr, bool fls, string ds, string dt, bool sn, bool fl, bool flo, bool at, bool rs, bool vss, bool dedupe, bool debug, bool trace, string arrow, string arrowc)
     {
         var levelSwitch = new LoggingLevelSwitch();
 
@@ -317,6 +322,14 @@ public class Program
         if (vss & (IsAdministrator() == false))
         {
             Log.Error("--vss is present, but administrator rights not found. Exiting");
+            Console.WriteLine();
+            return;
+        }
+
+        // Validate --arrowc
+        if (ParseArrowCompression(arrowc) == null)
+        {
+            Log.Error("--arrowc must be one of: zstd, lz4, none. Got {Arrowc}. Exiting", arrowc);
             Console.WriteLine();
             return;
         }
@@ -471,7 +484,7 @@ public class Program
                     drDir = Path.Combine(residentDirBase, "Resident");
                 }
 
-                ProcessMft(f, vss, dedupe, body, bdl, bodyf, blf, csv, csvf, json, jsonf, fl, flo, dt, dd, @do, fls, sn, at, de,rs,drDir, arrow);
+                ProcessMft(f, vss, dedupe, body, bdl, bodyf, blf, csv, csvf, json, jsonf, fl, flo, dt, dd, @do, fls, sn, at, de,rs,drDir, arrow, arrowc);
                 break;
             case FileType.LogFile:
                 Log.Warning("$LogFile not supported yet. Exiting");
@@ -514,7 +527,7 @@ public class Program
                         drDir2 = $"{residentDirBase}\\Resident";
                     }
 
-                    ProcessMft(m, vss, dedupe, body, bdl, bodyf, blf, csv, csvf, json, jsonf, fl, flo, dt, dd, @do, fls, sn, at, de,rs,drDir2, arrow);
+                    ProcessMft(m, vss, dedupe, body, bdl, bodyf, blf, csv, csvf, json, jsonf, fl, flo, dt, dd, @do, fls, sn, at, de,rs,drDir2, arrow, arrowc);
                 }
 
                 ProcessJ(f, vss, dedupe, csv, csvf, json, jsonf, dt);
@@ -1504,7 +1517,7 @@ public class Program
 
     
     
-    private static void ProcessMft(string file, bool vss, bool dedupe, string body, string bdl, string bodyf, bool blf, string csv, string csvf, string json, string jsonf, bool fl, bool flo, string dt, string dd, string @do, bool fls, bool includeShort, bool alltimestamp, string de, bool rs, string drDir, string arrow)
+    private static void ProcessMft(string file, bool vss, bool dedupe, string body, string bdl, string bodyf, bool blf, string csv, string csvf, string json, string jsonf, bool fl, bool flo, string dt, string dd, string @do, bool fls, bool includeShort, bool alltimestamp, string de, bool rs, string drDir, string arrow, string arrowc)
     {
         var mftFiles = new Dictionary<string, Mft>();
 
@@ -1944,7 +1957,11 @@ public class Program
 
                     var arrowPath = Path.Combine(arrow, arrowOutName);
                     Log.Information("\tArrow IPC output will be saved to {ArrowPath}", arrowPath);
-                    _arrowWriter = new MftArrowWriter(arrowPath);
+                    var arrowCompression = ParseArrowCompression(arrowc).Value;
+
+                    Log.Information("\tArrow IPC compression: {Compression}", arrowCompression);
+
+                    _arrowWriter = new MftArrowWriter(arrowPath, compression: arrowCompression);
                 }
                 catch (Exception e)
                 {
@@ -3393,6 +3410,25 @@ public class Program
         // Return the gathered values directly (no MFTRecordOut intermediate)
         return new FileListData(parentPath, fileName, extension,
                                 isDirectory, fileSize, created0x10, lastModified0x10);
+    }
+
+    /// <summary>
+    /// Maps the --arrowc option to a compression mode. Returns null when the value is not recognised.
+    /// </summary>
+    private static MftArrowCompression? ParseArrowCompression(string value)
+    {
+        if (value.IsNullOrEmpty())
+        {
+            return MftArrowCompression.Zstd;
+        }
+
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "zstd": return MftArrowCompression.Zstd;
+            case "lz4": return MftArrowCompression.Lz4;
+            case "none": return MftArrowCompression.None;
+            default: return null;
+        }
     }
 
     public static bool IsAdministrator()
