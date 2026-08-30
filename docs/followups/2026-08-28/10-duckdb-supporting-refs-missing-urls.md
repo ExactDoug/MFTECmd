@@ -21,9 +21,14 @@ because the bibliography supplied them directly.
 
 ## Proposed fix
 
-Recover the 19 URLs from the raw Deep Research object (the same source that resolved the
-39 primary IDs) and re-run the repair. The pipeline already supports it: `duck-support.tsv`
-takes an optional third column, and `repair.py` emits a link when it is present.
+Recover the 19 URLs from the raw Deep Research object (the same source that resolved the 39
+primary IDs) and re-run the repair.
+
+> **Corrected 2026-08-30.** An earlier version said "the pipeline already supports it" and named
+> `duck-support.tsv` / `repair.py`. Those lived only in a scratch directory and were **never
+> committed**, making this fix unfollowable. They are now committed under `tooling/` in this
+> directory. `duck-support.tsv` takes an optional third column; `repair.py` emits a link when it
+> is present and plain text when it is not.
 
 ## The 10 most likely mistakes, ranked
 
@@ -44,5 +49,6 @@ takes an optional third column, and `repair.py` emits a link when it is present.
    breaks every anchor.
 8. **Dropping the ID from the entry** while adding the URL. The ID is the point of the repair.
 9. **Adding `?utm_source=chatgpt.com` tracking parameters** from a copied link.
-10. **Editing the markdown by hand** instead of updating the TSV and re-running `repair.py`,
-    so the two copies drift.
+10. **Editing the markdown by hand** instead of updating the TSV and re-running
+    `tooling/repair.py`. The mftecmd and ntfsight copies are currently byte-identical (verified
+    by `md5sum`); hand edits will drift them.

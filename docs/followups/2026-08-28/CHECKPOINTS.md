@@ -12,7 +12,7 @@ An agent must post its output and **wait** at each gate. Cheap to check, expensi
 
 | Gate | When | Must report | Catches |
 |---|---|---|---|
-| **G0 — Environment** | Before any work | `./verify.sh` output | Missing tooling, wrong branch, missing fixtures, exec-bit — before a single edit |
+| **G0 - Environment** | Before any work | output of `docs/followups/2026-08-28/verify.sh`, run from the repo root | Missing tooling, wrong branch, missing fixtures, exec-bit — before a single edit |
 | **G1 — Restatement** | Before planning | Item number, repo, target branch, and the top 3 traps *in its own words* | Wrong item, wrong repo, skimmed the doc |
 | **G2 — Plan** | Before editing | Files it intends to touch with line numbers, re-grepped now | Stale line numbers, scope creep, editing the wrong copy of a duplicated file |
 | **G3 — Evidence** | Before claiming done | Actual command output proving the fix, not a description | "Should work", structure-only validation, unrun tests |
@@ -59,7 +59,7 @@ Read, in order:
   docs/followups/2026-08-28/TRAPS.md
   docs/followups/2026-08-28/<your item>.md   (especially its ranked mistakes)
 
-Then run:  docs/followups/2026-08-28/./verify.sh
+Then run:  docs/followups/2026-08-28/verify.sh     # from the repo root
 Post the output. Do not proceed on any FAIL.
 
 Work ONE item. Stop and report at gates G1-G4 in CHECKPOINTS.md.

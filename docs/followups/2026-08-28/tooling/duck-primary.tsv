@@ -1,0 +1,39 @@
+1	turn15search0	Building DuckDB from Source – DuckDB	https://duckdb.org/docs/current/dev/building/overview
+2	turn20search0	Client Overview – DuckDB	https://duckdb.org/docs/current/clients/overview
+3	turn15search8	Windows – DuckDB	https://duckdb.org/docs/lts/dev/building/windows
+4	turn15search6	Execution Format – DuckDB	https://duckdb.org/docs/current/internals/vector
+5	turn18search0	Apache DataFusion — Apache DataFusion documentation	https://datafusion.apache.org/
+6	turn15search1	duckdb/src/CMakeLists.txt at main · duckdb/duckdb · GitHub	https://github.com/duckdb/duckdb/blob/main/src/CMakeLists.txt
+7	turn20search1	Getting Started | DuckDB.NET	https://duckdb.net/docs/getting-started.html
+8	turn20search2	DuckDB.ExtensionKit: Building DuckDB Extensions in C# – DuckDB	https://duckdb.org/2026/03/20/duckdb-extensionkit-csharp
+9	turn14search2	NuGet Gallery | Microsoft.DotNet.Interactive.DuckDB 1.0.0-beta.25323.1	https://www.nuget.org/packages/Microsoft.DotNet.Interactive.DuckDB/1.0.0-beta.25323.1
+10	turn15search3	ODBC API on Windows – DuckDB	https://duckdb.org/docs/current/clients/odbc/windows
+11	turn4search7	Tuning Workloads – DuckDB	https://duckdb.org/docs/current/guides/performance/how_to_tune_workloads
+12	turn4search3	Memory Management in DuckDB – DuckDB	https://duckdb.org/2024/07/09/memory-management
+13	turn12search2	Importing Data – DuckDB	https://duckdb.org/docs/lts/data/overview
+14	turn21search0	jemalloc – DuckDB	https://duckdb.org/docs/current/internals/jemalloc
+15	turn21search6	Benchmark Suite – DuckDB	https://duckdb.org/docs/lts/dev/benchmark
+16	turn21search1	Concurrency – DuckDB	https://duckdb.org/docs/current/connect/concurrency
+17	turn13search10	Startup & Shutdown – DuckDB	https://duckdb.org/docs/lts/clients/c/connect
+18	turn12search0	Storage Versions and Format – DuckDB	https://duckdb.org/docs/current/internals/storage
+19	turn3search1	Releases · duckdb/duckdb	https://github.com/duckdb/duckdb/releases
+20	turn8search0	Development Environment — Apache DataFusion documentation	https://datafusion.apache.org/contributor-guide/development_environment.html
+21	turn18search7	Apache DataFusion is now the fastest single node engine for querying Apache Parquet files	https://datafusion.apache.org/blog/2024/11/18/datafusion-fastest-single-node-parquet-clickbench/
+22	turn18search8	DataFusion Introduction — raw Sphinx source	https://datafusion.apache.org/_sources/user-guide/introduction.md.txt
+23	turn18search6	Language integrations index – ClickHouse Documentation	https://clickhouse.com/docs/chdb/install
+24	turn19search0	How do I install ClickHouse on Windows 10? – ClickHouse Documentation	https://clickhouse.com/docs/resources/support-center/knowledge-base/setup-installation/install-clickhouse-windows10
+25	turn18search1	chDB for C and C++ – ClickHouse Documentation	https://clickhouse.com/docs/chdb/install/c
+26	turn10search5	chDB – ClickHouse Documentation	https://clickhouse.com/docs/chdb
+27	turn17search1	About SQLite	https://sqlite.org/about.html
+28	turn16search1	Custom SQLite versions – Microsoft.Data.Sqlite | Microsoft Learn	https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/custom-versions
+29	turn17search6	EXPLAIN QUERY PLAN	https://a1.sqlite.org/eqp.html
+30	turn16search0	Write-Ahead Logging	https://sqlite.org/wal.html
+31	turn17search0	SQLite Copyright	https://sqlite.org/copyright.html
+32	turn23search0	SQL Server Express LocalDB – SQL Server | Microsoft Learn	https://learn.microsoft.com/en-us/sql/database-engine/configure-windows/sql-server-express-localdb?view=sql-server-ver17
+33	turn23search2	Columnstore indexes: Overview – SQL Server | Microsoft Learn	https://learn.microsoft.com/en-us/sql/relational-databases/indexes/columnstore-indexes-overview?view=sql-server-ver17
+34	turn16search3	Editions and Supported Features of SQL Server 2025 – SQL Server | Microsoft Learn	https://learn.microsoft.com/en-us/sql/sql-server/editions-and-components-of-sql-server-2025?view=sql-server-ver17
+35	turn22search0	SQL Server Downloads | Microsoft	https://www.microsoft.com/en-us/sql-server/sql-server-downloads
+36	turn20search9	Overview – DuckDB (C API)	https://duckdb.org/docs/current/clients/c/overview
+37	turn24search6	DuckDB v2.0: Your Database Deserves a Better Parser – DuckDB	https://duckdb.org/2026/08/20/duckdb-20-peg-parser
+38	turn22search1	Editions and Supported Features of SQL Server 2025 – SQL Server | Microsoft Learn	https://learn.microsoft.com/en-us/sql/sql-server/editions-and-components-of-sql-server-2025?view=sql-server-ver17
+39	turn24search1	A Preview of DuckDB v2.0 – DuckDB	https://duckdb.org/2026/08/17/duckdb-20-highlights

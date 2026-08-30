@@ -1,46 +1,64 @@
-# 05 — `--sn` can roughly double row counts, and this is undocumented
+# 05 — `--sn` materially increases row counts, and this is undocumented
 
 **Repo:** mftecmd · **Severity:** doc gap / footgun · **Effort:** S · **Status:** open
 
+> **Corrected 2026-08-30 after adversarial audit.** The previous version claimed `tdungan`
+> masks this effect and that `--sn` "roughly doubles" rows. Both were false. Measured below.
+
 ## What is wrong
 
-`MFTECmd/Program.cs:2967` skips `NameTypes.Dos` FILE_NAME attributes unless `--sn` is passed.
-On a volume that carries *separate* Dos and Win32 name attributes, enabling `--sn` can nearly
-double output rows. Nothing in the README warns about this.
+`MFTECmd/Program.cs:2966-2970` skips `NameTypes.Dos` FILE_NAME attributes unless `--sn`
+(`includeShort`) is set. Enabling `--sn` therefore adds a row per separate DOS 8.3 name.
+Nothing in the README warns that this changes row counts; `README.md:30` only says
+*"sn  Include DOS file name types. Default is FALSE"*.
 
-This is not theoretical: ntfsight hit it. Its commit `2979482` fixed DOS 8.3 entries
-double-counting **everything by ~2x**, and `DiskUsageAnalyzer.ps1` now deliberately omits
-`--sn` for that reason. The stale "8.5M files" figure (item 07) is a downstream symptom.
+## Measured, not estimated
 
-## Nuance that makes this confusing
+Parsed directly from the fixtures (FILE_NAME attribute types per base record):
 
-The `tdungan` fixture is XP-era: 57% of its rows are `NameType=DosWindows`, a *combined*
-attribute. So `--sn` barely changes row count there. A modern volume with separate Dos and
-Win32 attributes behaves very differently. **The fixture will not show you this behaviour.**
+| Fixture | rows w/o `--sn` | rows w/ `--sn` | ratio |
+|---|---|---|---|
+| `tdungan` | 52,185 | 74,396 | **1.426x** |
+| `xw` | 628 | ~860-873 | ~1.37x |
+| `NIST/DFR-16` | 117 | 119 | **1.02x** |
+
+`tdungan` FILE_NAME breakdown: `DosWindows` 29,969 (combined, unaffected by `--sn`) ·
+`Windows` 22,211 + `Dos` 22,211 (**separate pairs — these are what `--sn` adds**) · `Posix` 5.
+
+So: **57% of tdungan's rows are combined names, but 43% are separate pairs.** The fixture
+demonstrates the effect at +42.6% — it does **not** mask it. `NIST/DFR-16` (85% Posix) is the
+fixture that masks it, at 1.02x.
+
+The theoretical worst case on a volume where *every* long name carries a separate DOS name is
+~2x. No fixture here reaches it; the observed range is **1.02x-1.43x**.
+
+## Corroboration downstream
+
+ntfsight hit this. Commit `2979482` — *"Fixes double-counting bug that inflated all statistics
+by ~2x"* — and `951a142` (a separate commit) removed `--sn`, with
+`src/DiskUsageAnalyzer.ps1:502-503` carrying the explanatory comment.
 
 ## Proposed fix
 
-Document it in the README next to `--sn` and `--flo`: state that `--sn` includes DOS 8.3 name
-attributes, that this can approximately double row count on volumes with 8.3 generation
-enabled, and that downstream consumers doing per-file aggregation should leave it off.
+Document next to `--sn` and `--flo`: enabling `--sn` adds a row per separate DOS 8.3 name
+attribute, observed at 1.02x-1.43x on available fixtures and up to ~2x in theory, and consumers
+doing per-file aggregation should leave it off.
 
 ## The 10 most likely mistakes, ranked
 
-1. **Testing on `tdungan` and concluding `--sn` is harmless.** Its combined `DosWindows`
-   entries mask the effect entirely.
-2. **Describing it as "adds short names" without saying rows roughly double.** The row-count
-   consequence is the part that breaks consumers.
-3. **Assuming 8.3 generation is always on.** It is commonly disabled
-   (`fsutil behavior set disable8dot3 1`), so the multiplier is volume-dependent, not fixed.
-4. **Calling it exactly 2x.** It is "up to roughly 2x", varying by how many files carry a
-   separate DOS name.
-5. **Conflating this with ADS rows.** Alternate data streams add rows too, but only ~0.05%
-   on tdungan. Different mechanism, wildly different magnitude.
-6. **Changing the default.** Upstream MFTECmd behaviour; do not silently alter it.
-7. **Documenting only under `--sn` and not under `--flo`/`--fl`,** where people actually hit
-   it while counting files.
-8. **Assuming rows == files in the docs you write.** They are not equal even without `--sn`.
-9. **Rewriting ntfsight's history** to say the 8.5M figure was "a bug" — it was a real count
-   of a real (double-counted) output. Describe precisely.
-10. **Adding a warning log on every run,** which is noise for the legitimate forensic use of
-    `--sn`.
+1. **Repeating that `tdungan` masks the effect.** It shows it at +42.6%. Use `NIST/DFR-16` if
+   you want the masking case.
+2. **Writing "doubles".** Observed is 1.02x-1.43x. Say "up to ~2x in theory, 1.02x-1.43x measured".
+3. **Assuming 8.3 generation is always on.** Commonly disabled via
+   `fsutil behavior set disable8dot3 1`; the multiplier is volume-dependent.
+4. **Conflating this with ADS rows.** ADS adds ~0.05% on tdungan — different mechanism, different
+   magnitude by three orders.
+5. **Changing the default.** Upstream MFTECmd behaviour; leave it.
+6. **Documenting only under `--sn`,** not under `--flo`/`--fl` where people count files.
+7. **Writing "rows == files" anywhere.** They are not equal even without `--sn`.
+8. **Re-deriving the numbers with a parser that ignores ADS** and reporting a slightly different
+   row count as a contradiction. The table above excludes ADS; MFTECmd's own totals include it
+   (52,210 vs 52,185).
+9. **Citing `2979482` as the commit that removed `--sn`.** That was `951a142`; `2979482` filtered
+   Dos rows in the consumer.
+10. **Adding a per-run warning log,** which is noise for the legitimate forensic use of `--sn`.

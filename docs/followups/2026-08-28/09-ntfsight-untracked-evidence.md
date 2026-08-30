@@ -31,6 +31,22 @@ src/python/test-output/test_summary.csv  55,995 B
 src/python/test-output/test_top_files.csv 93,056 B  the $MFT and CSV size evidence
 ```
 
+## Severity escalation (2026-08-30 audit)
+
+These files are **not merely personal paths**. A characterisation pass found they expose the
+Windows account name, employer/tenant identity via OneDrive-for-Business paths (185 of 499 rows),
+**named third-party client organisations** as folder names (including directories titled with
+security/incident-response document names), and **5 unique individuals' email addresses** at those
+client domains, embedded in mailbox-archive filenames.
+
+`ExactDoug/ntfsight` is a **public** repository. Committing these as-is is a **client-data
+disclosure**, not a personal-privacy concern. Redaction or anonymisation is required, not review.
+
+**They are already cited from tracked files on `master`:**
+- `docs/research/mft-analysis-optimization.md:985`
+- `docs/planning/development-roadmap.md:401`
+- merged PR #3's body (citation already dangling)
+
 ## Proposed fix
 
 Commit them under a clearly-labelled evidence path, or gitignore them and archive elsewhere —
@@ -40,14 +56,15 @@ but decide deliberately. The current state is "important and unprotected".
 
 1. **Gitignoring them as "build output".** They are irreproducible measurements, not
    artifacts of a build.
-2. **Committing without checking for machine-identifying content.** These are full filesystem
-   listings of a personal workstation — paths, usernames, installed software. **Review before
-   committing to a repo that may go public.**
-3. **Assuming they can be regenerated.** They cannot; the volume no longer exists in that form.
+2. **Committing raw.** This is a **public** repo containing named client organisations and
+   individuals' email addresses. Redact or relocate; reviewing is not sufficient.
+3. **Assuming they can be regenerated.** They cannot. It is the *same filesystem* (all four NTFS
+   metafiles share format timestamp `2024-07-25 01:25:42.429573300`) but **shrunk** 592 GB to
+   270 GB, `$MFT` grown 2.15 to 2.68 GiB. Same volume, unrecoverable state.
 4. **Committing only the CSVs and dropping the HTML report,** which holds the headline
    totals and duration.
-5. **Rewriting the merged PR's citations to point at the new path** and calling that the fix —
-   the file still needs to exist.
+5. **Repointing citations** and calling that the fix. Three dangle (two tracked docs plus merged
+   PR #3), and the files still need to exist somewhere.
 6. **Committing into `output/`,** a directory whose README implies it is disposable working
    output.
 7. **Adding them to Git LFS** for ~250 KB, adding a dependency for no benefit.

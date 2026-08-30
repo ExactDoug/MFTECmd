@@ -21,8 +21,21 @@ NTFS derives record size from `$Boot`'s `ClustersPerFileRecordSegment`, a **sign
 negative `n` means `2^|n|` bytes. The near-universal value is `-10` → 1024. But the record
 size floors at the cluster size, so 4Kn / large-cluster volumes can produce 4096-byte records.
 
-The MFT library already handles this correctly — `mft/MFT/Mft.cs` reads `AllocatedRecordSize`
-from offset `0x1c` and iterates by that value. Only this one call site assumes 1024.
+The MFT library already handles this correctly — `AllocatedRecordSize` is read at
+`mft/MFT/FileRecord.cs:115` (offset `0x1c`), and `mft/MFT/Mft.cs:50-57` reads the same bytes into
+a local it iterates by. Only this one call site in MFTECmd assumes 1024.
+
+## Two related defects found during audit
+
+**(a) A larger bug at the same call site.** `--do`'s help (`Program.cs:130-131`) documents a
+*byte offset* ("Ex: 5120 or 0x1400"), but line 2112 **multiplies** the value by
+`AllocatedRecordSize`, treating it as an entry index. Following the help literally seeks to
+`0x1400 x 1024`. Long-standing upstream; fixing only the `ReadBytes(1024)` leaves it.
+
+**(b) A sibling hardcode this item's remediation cannot find.** `mft/MFT/FileRecord.cs:84,102`
+hardcode `512` for the update-sequence-array (fixup) stride — the *sector* size. On the same 4Kn
+volumes this item is about, that loop patches wrong offsets. Different literal, different file,
+different repo: "grep this file for 1024" will never surface it.
 
 ## Proposed fix
 
@@ -51,10 +64,12 @@ exercise the bug.
    `0x1c`). The seek uses Allocated; the read must match.
 5. **"Fixing" the comment instead of the code** — deleting "but don't assume that" to make
    the file self-consistent, which preserves the bug and destroys the warning.
-6. **Testing only through the CLI.** This path is `--dd`/`--do`/`--de` dump territory, not
-   the `--csv`/`--arrow` path; a normal run never reaches it.
-7. **Assuming 4096 is the only alternative.** NT4 permitted up to 64 KB. Do not swap one
-   magic number for another.
+6. **Testing only through the CLI.** Reached only by `--dd` **plus** `--do` (validation at
+   `Program.cs:446-478` makes them mutually required). `--de` is a separate block at `:2138` and
+   never reaches the 1024 read. A normal `--csv`/`--arrow` run never touches it.
+7. **Assuming 4096 is the only alternative.** NTFS documents 1,024 min / 4,096 max; do not swap
+   one magic number for another. (An earlier version cited "NT4 up to 64 KB" — unsupported, and
+   `mft/Boot/Boot.cs:256-264`'s `Math.Pow(2, 256-size)` would overflow `int` first.)
 8. **Building on Windows and forgetting `chmod +x`,** then misreading `Permission denied`
    as a code fault.
 9. **Introducing a per-record property read inside a hot loop.** Hoist it; this sits near

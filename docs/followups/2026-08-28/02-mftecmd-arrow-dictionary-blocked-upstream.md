@@ -28,18 +28,37 @@ The Arrow IPC **file** format permits only one non-delta dictionary batch per di
 Delta dictionaries exist in the spec and `isDelta`/`DeltaDictionary` symbols are present in
 the assembly, but there is no public write path.
 
+## Evidence caveat
+
+The batch-bounds table above and the `989,362 B` figure were produced by an implementation that
+was **never committed** — PR #3 carries only the Zstd commit. They are reproducible only by
+re-implementing the change. Two auditors correctly flagged them as unverifiable from the repo.
+The *mechanism*, by contrast, is verifiable at Apache source and in the resolved assembly (a
+full-filesystem search finds only 22.1.0 cached, so no shadowing copy).
+
 ## Options
 
 1. **Leave as-is.** Zstd already gives 4.58x. Lowest risk.
-2. **`ArrowStreamWriter`** — streams support delta dictionaries. Costs the file footer and
-   random access; verify DuckDB/pyarrow still read the result the way the pipeline expects.
+2. ~~**`ArrowStreamWriter`** — streams support delta dictionaries.~~ **FALSE LEAD, do not
+   attempt.** Verified against Apache source at tag `v22.1.0`: `ArrowFileWriter : ArrowStreamWriter`,
+   and it overrides 10 methods, **none** of them `WriteRecordBatchInternal`, `WriteDictionaries`,
+   or anything touching `HasWrittenDictionaryBatch`. The gate
+   (`if (!HasWrittenDictionaryBatch) { ...; HasWrittenDictionaryBatch = true; }`) and the
+   hardcoded `CreateDictionaryBatch(..., false)` beside a `// TODO: Support delta.` both live in
+   the **base class** you would be switching to. Switching produces byte-identical corruption,
+   loses the file footer and random access, and breaks ntfsight's `ipc.open_file`. All cost, no
+   benefit.
 3. **Fixed dictionaries only.** `NameType` is bounded by the `NameTypes` enum, so it could be
    pre-seeded and never grow. Marginal gain under Zstd; verify before building.
 4. **Upstream fix/issue** against apache/arrow for the silent-discard behaviour.
 
 ## The 10 most likely mistakes, ranked
 
-1. **Validating by row count and file size only.** That is exactly what the corrupt build
+1. **Trusting Arrow's `status.html`, which marks C# ✓ for "Delta dictionaries".** That ✓ is
+   **read-side only** (added 2021 by a PR that touched no writer file). It is precisely what makes
+   Option 2 look viable. No Apache.Arrow C# writer — file *or* stream — can emit a second or delta
+   dictionary batch in 22.1.0, and 23.0.0 carries the same `// TODO: Support delta.`
+2. **Validating by row count and file size only.** That is exactly what the corrupt build
    passed. You must read every value back and compare against an uncompressed baseline.
 2. **Assuming a newer Apache.Arrow fixed it** without re-running the batch-bounds check.
    Verify against the pinned version actually in `MFTECmd.csproj`.

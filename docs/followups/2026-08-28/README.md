@@ -24,15 +24,29 @@ trivial and are not. Read it before touching code.
 |---|------|------|----------|--------|
 | [01](01-mftecmd-hardcoded-mft-record-size.md) | Hardcoded 1024-byte MFT record read | mftecmd | Latent bug | S |
 | [02](02-mftecmd-arrow-dictionary-blocked-upstream.md) | Dictionary encoding blocked by Apache.Arrow writer | mftecmd | Known limitation | M–L |
-| [03](03-mftecmd-duckdb-claim-unmeasured.md) | `~1600x` DuckDB claim never measured | mftecmd | Unsubstantiated claim | M |
-| [04](04-mftecmd-no-release-benchmark.md) | No Release-build benchmark | mftecmd | Missing evidence | S–M |
-| [05](05-mftecmd-sn-row-count-doubling.md) | `--sn` can double row counts, undocumented | mftecmd | Doc gap / footgun | S |
+| [03](03-mftecmd-duckdb-claim-unmeasured.md) | `~1600x` DuckDB claim is misattributed | mftecmd | Unsubstantiated claim | M |
+| [04](04-mftecmd-no-release-benchmark.md) | No Release benchmark **for the Arrow work** | mftecmd | Missing evidence | S–M |
+| [05](05-mftecmd-sn-row-count-doubling.md) | `--sn` raises row counts 1.02x-1.43x, undocumented | mftecmd | Doc gap / footgun | S |
 | [06](06-ntfsight-arrow-export-target-unreachable.md) | "15-30 MB Arrow IPC" target is unreachable | ntfsight | Wrong target | S |
 | [07](07-ntfsight-8m-files-artifact.md) | "8.5M+ files" figure is a counting artifact | ntfsight | Wrong figure | S |
 | [08](08-ntfsight-mft-loader-unbounded.md) | `mft_loader.py` unbounded load, no timeout | ntfsight | Scaling risk | M |
-| [09](09-ntfsight-untracked-evidence.md) | Cited evidence artifacts are untracked | ntfsight | Data loss risk | S |
+| [09](09-ntfsight-untracked-evidence.md) | Cited evidence untracked **and contains client PII** | ntfsight | Data loss risk | S |
 | [10](10-duckdb-supporting-refs-missing-urls.md) | 19 DuckDB supporting refs have no URL | both | Incomplete data | S |
-| [11](11-tooling-unprivileged-mft-sizing.md) | Unprivileged `$MFT` sizing trick undocumented | tooling | Missing capability doc | S |
+| [11](11-tooling-unprivileged-mft-sizing.md) | Unprivileged `$MFT` sizing undocumented | tooling | Missing doc | S |
+| [12](12-mftecmd-do-offset-semantics.md) | `--do` treats a documented byte offset as an entry index | mftecmd | Latent bug | S |
+| [13](13-mft-hardcoded-fixup-stride.md) | Hardcoded 512-byte fixup stride | mft | Latent bug | S |
+| [14](14-ntfsight-cli-arrow-into-csv-loader.md) | `--drive` CLI feeds an Arrow file to the CSV loader | ntfsight | Likely broken path | S |
+
+## Audit provenance
+
+Every item and support file in this directory was **adversarially audited on 2026-08-30** by six
+independent read-only investigators instructed to disprove rather than confirm. They found
+defects in all 11 items and all 5 support files, including four that would have actively
+misdirected remediation. Those are corrected here, each marked with a `Corrected 2026-08-30` note
+stating what the earlier version got wrong.
+
+Findings that survived the audit are stronger for it; findings that did not were rewritten or
+deleted. Where a claim rests on evidence that cannot be reproduced from the repo, it now says so.
 
 ## Reference docs — read before touching an item
 

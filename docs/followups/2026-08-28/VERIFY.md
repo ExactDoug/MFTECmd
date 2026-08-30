@@ -6,7 +6,7 @@ alternatives give false passes.
 ## 0. Always first
 
 ```bash
-docs/followups/2026-08-28/verify.sh        # env + repo + fixtures + exec bit
+docs/followups/2026-08-28/verify.sh        # run from the repo root
 ```
 Any **FAIL** means stop.
 
@@ -31,6 +31,9 @@ cd /mnt/c && "$EXE" \
 ```
 Use **tdungan** for anything batch-related. `xw`/`NIST` are single-batch.
 
+**If you have just rebuilt, run the `chmod +x` from section 1 first.** This block is often run
+alone, and a missing exec bit fails as `Permission denied`.
+
 ## 3. Validate Arrow content — the check that matters
 
 Structure passing is not enough. This reads every value and compares against a baseline.
@@ -51,11 +54,19 @@ on a corrupt dictionary-encoded file.
 
 ## 4. Dictionary bounds check (item 02 only)
 
+Runnable as written. Column 2 is `ParentPath`, and it is a **plain `StringArray` today** -
+dictionary encoding is not shipped (item 02), so this reports "plain StringArray". That is the
+expected result, not evidence of a bug.
+
 ```python
-with pa.memory_map(f,'rb') as s:
-    r=ipc.open_file(s)
+import pyarrow as pa, pyarrow.ipc as ipc, pyarrow.compute as pc, glob
+f = sorted(glob.glob("YOUR_DIR/*.arrow"))[-1]
+with pa.memory_map(f, 'rb') as s:
+    r = ipc.open_file(s)
     for i in range(r.num_record_batches):
-        col=r.get_batch(i).column(2)          # ParentPath
+        col = r.get_batch(i).column(2)                  # ParentPath
+        if not hasattr(col, 'dictionary'):
+            print(f"batch {i}: plain StringArray (expected today)"); continue
         assert pc.max(col.indices).as_py() < len(col.dictionary), f"batch {i} OUT OF BOUNDS"
 ```
 

@@ -17,13 +17,16 @@ statement that had to be corrected. Precision in these words is not pedantry.
 no multiplier. 42,861 in-use + 9,459 free = 52,320 slots, and rows/slot is **0.998**. The log
 line reports in-use only; free records are written as well.
 
-Rule of thumb: `rows ≈ $MFT_bytes / 1024`. Do not derive rows from a file count.
+Rule of thumb **for a densely-populated $MFT**: `rows ~= $MFT_bytes / 1024`. It holds for
+`tdungan` (0.998) and **fails on the other two fixtures** - `xw` is 1.016 (rows exceed slots) and
+`NIST/DFR-16` is 0.76 (37 uninitialised slots). Never derive rows from a *file* count.
 
 ## Rows vs files
 
-Rows can exceed files via alternate data streams (`$BadClus:$Bad`, `:Zone.Identifier`) — only
-0.05% on tdungan — and, if `--sn` is passed, via separate DOS 8.3 name attributes, which can
-roughly **double** row count on volumes with 8.3 generation enabled (item 05).
+Rows can exceed files via alternate data streams (`$BadClus:$Bad`, `:Zone.Identifier`) - only
+0.05% on tdungan - and, if `--sn` is passed, via separate DOS 8.3 name attributes. Measured effect
+of `--sn`: **1.02x (NIST) to 1.43x (tdungan)**; ~2x is the theoretical ceiling, not an observation
+(item 05).
 
 ## Arrow sizes
 
@@ -58,7 +61,9 @@ Counts: Arrow 34 primary + 18 supporting = 52. DuckDB 39 + 19 = 58.
 | **Benchmark** | Release build, no 9p boundary, ≥3 runs, stated fixture |
 | **Timing** | Anything else — including every timing this session produced |
 
-Only the README's 38-40% figure qualifies as a benchmark, and its volume no longer exists.
+The README's `--flo` Release row (`:184`, 40%) is the only Release timing in the repo, but its
+`--fl` baseline carries no build label, so it is not a demonstrated Release-vs-Release A/B. Its
+volume is the same filesystem as today's C:, since shrunk.
 
 ## Paths
 
