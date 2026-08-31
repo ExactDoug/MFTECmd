@@ -1,0 +1,34 @@
+1	turn20search0	Developing on Windows — Apache Arrow v24.0.0	https://arrow.apache.org/docs/24.0/developers/cpp/windows.html
+2	turn18search0	Apache Arrow .NET | Apache Arrow .NET	https://arrow.apache.org/dotnet/
+3	turn23search0	Installation | Apache Arrow	https://arrow.apache.org/install/
+4	turn21search0	Environment Variables — Apache Arrow v25.0.1	https://arrow.apache.org/docs/cpp/env_vars.html
+5	turn14search0	Benchmarks — Apache Arrow v24.0.0	https://arrow.apache.org/docs/24.0/developers/benchmarks.html
+6	turn22search1	Why DuckDB – DuckDB	https://duckdb.org/why_duckdb
+7	turn17search11	Apache Arrow 25.0.1 Release | Apache Arrow	https://arrow.apache.org/blog/2026/08/10/25.0.1-release/
+8	turn20search1	Using Arrow C++ in your own project — Apache Arrow v25.0.1	https://arrow.apache.org/docs/cpp/build_system.html
+9	turn23search1	vcpkg package - arrow	https://vcpkg.io/en/package/arrow
+10	turn18search1	NuGet Gallery | Apache.Arrow 23.0.0	https://www.nuget.org/packages/Apache.Arrow/23.0.0
+11	turn23search8	Choose a UWP version - UWP applications | Microsoft Learn	https://learn.microsoft.com/en-us/windows/uwp/updates-and-versions/choose-a-uwp-version
+12	turn1search0	Apache Arrow 25.0.0 Release | Apache Arrow	https://arrow.apache.org/blog/2026/07/10/25.0.0-release/
+13	turn20search3	Memory Management — Apache Arrow v22.0.0	https://arrow.apache.org/docs/22.0/cpp/memory.html
+14	turn21search2	Input / output and filesystems — Apache Arrow v25.0.1	https://arrow.apache.org/docs/cpp/io.html
+15	turn21search1	Thread Management — Apache Arrow v25.0.1	https://arrow.apache.org/docs/cpp/threading.html
+16	turn20search2	Programming Support — Apache Arrow v24.0.0	https://arrow.apache.org/docs/24.0/cpp/api/support.html
+17	turn17search0	nanoarrow — nanoarrow documentation	https://arrow.apache.org/nanoarrow/main/index.html
+18	turn14search7	Check level range in decoder · apache/arrow@283f56b · GitHub	https://github.com/apache/arrow/runs/90326448254
+19	turn21search6	User Guide — Apache Arrow v25.0.1	https://arrow.apache.org/docs/cpp/user_guide.html
+20	turn18search7	NuGet Gallery | Apache.Arrow 2.0.0	https://www.nuget.org/packages/Apache.Arrow/2.0.0
+21	turn17search3	Apache Arrow nanoarrow 0.9.0 Release | Apache Arrow	https://arrow.apache.org/blog/2026/08/14/nanoarrow-0.9.0-release/
+22	turn23search5	vcpkg package - nanoarrow	https://vcpkg.io/en/package/nanoarrow.html
+23	turn15search1	NuGet Gallery | Microsoft.Data.Analysis 0.23.0	https://www.nuget.org/packages/Microsoft.Data.Analysis/
+24	turn15search4	DataFrame Class (Microsoft.Data.Analysis) | Microsoft Learn	https://learn.microsoft.com/en-us/dotnet/api/microsoft.data.analysis.dataframe?view=ml-dotnet-preview
+25	turn15search2	machinelearning/LICENSE at main · dotnet/machinelearning · GitHub	https://github.com/dotnet/machinelearning/blob/main/LICENSE
+26	turn16search0	Windows – DuckDB	https://duckdb.org/docs/lts/dev/building/windows
+27	turn22search2	duckdb/LICENSE at main · duckdb/duckdb · GitHub	https://github.com/duckdb/duckdb/blob/master/LICENSE
+28	turn15search0	Microsoft.Data.Analysis Namespace | Microsoft Learn	https://learn.microsoft.com/en-us/dotnet/api/microsoft.data.analysis?view=ml-dotnet-preview
+29	turn15search3	IDataView Interface (Microsoft.ML) | Microsoft Learn	https://learn.microsoft.com/en-us/dotnet/api/microsoft.ml.idataview?view=ml-dotnet-preview
+30	turn16search1	C++ API – DuckDB	https://duckdb.org/docs/current/clients/cpp
+31	turn22search8	ADBC Client – DuckDB	https://duckdb.org/docs/lts/clients/adbc
+32	turn16search3	NuGet Gallery | DuckDB.NET.Data 1.5.5	https://www.nuget.org/packages/DuckDB.NET.Data/1.5.5
+33	turn16search2	vcpkg package - duckdb	https://vcpkg.io/en/package/duckdb.html
+34	turn23search6	What's new in .NET Standard - .NET | Microsoft Learn	https://learn.microsoft.com/en-us/dotnet/standard/whats-new/whats-new-in-dotnet-standard
