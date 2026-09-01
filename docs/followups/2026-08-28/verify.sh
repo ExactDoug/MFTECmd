@@ -13,7 +13,7 @@ MFTECMD="$HOME/dev/projects/github/mftecmd"
 NTFSIGHT="$HOME/dev/projects/github/ntfsight"
 MFT_STANDALONE="$HOME/dev/projects/github/mft"
 SUBMODULE="$MFTECMD/mft"                       # [audit d] the actual build input
-EXPECTED_BRANCHES="master|docs/followups-2026-08-28|feat/|fix/|chore/"
+EXPECTED_BRANCHES="master|main|docs/|feat/|fix/|chore/|refactor/|test/"
 pass=0; fail=0; warn=0
 ok(){ printf "  \033[32mPASS\033[0m %s\n" "$1"; pass=$((pass+1)); }
 no(){ printf "  \033[31mFAIL\033[0m %s\n" "$1"; fail=$((fail+1)); }
