@@ -37,6 +37,27 @@ trivial and are not. Read it before touching code.
 | [13](13-mft-hardcoded-fixup-stride.md) | Hardcoded 512-byte fixup stride | mft | Latent bug | S |
 | [14](14-ntfsight-cli-arrow-into-csv-loader.md) | `--drive` CLI feeds an Arrow file to the CSV loader | ntfsight | Likely broken path | S |
 
+## Progress log
+
+| Date | Item | Status |
+|---|---|---|
+| 2026-08-30 | all | Adversarially audited; defects in all 11 items + 5 support files corrected |
+| 2026-08-31 | **09** | **Done** - artifacts redacted and committed, raw archived outside the repo (ntfsight PR #7) |
+| 2026-08-31 | **13** | **Fix pushed**, `mft` branch `fix/derive-fixup-stride` (`3ff0f57`); PR pending; submodule bump pending |
+| 2026-08-31 | 01, 12 | Not started - depend on the item 13 submodule bump landing first |
+| 2026-08-31 | 05, 06, 07 | **Blocked** - ntfsight PR #6 (peer session) rewrites `src/DiskUsageAnalyzer.ps1`, which is the evidence base for 05 and 07 |
+
+### Item 13 addendum: three more sites
+
+The item names `MFT/FileRecord.cs:84,102`. The same hardcoded 512 also appears at
+`LogFile/LogPageRstr.cs:88,106` and `LogFile/LogPageRcrd.cs:71`. Those are **not fixed** - there is
+no `$LogFile` fixture in `MFT.Test`, so the change could not be verified. Treat as a follow-up.
+
+The shipped fix derives the stride from the record itself rather than from `$Boot` as this item
+originally proposed: `rawBytes.Length / FixupData.FixupActual.Count`. The record is
+self-describing, so no boot-sector lookup is needed. Verified to yield exactly 512 on all three
+fixtures, i.e. behaviour on conventional volumes is unchanged.
+
 ## Audit provenance
 
 Every item and support file in this directory was **adversarially audited on 2026-08-30** by six
